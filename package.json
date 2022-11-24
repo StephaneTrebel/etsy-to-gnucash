@@ -17,13 +17,11 @@
     "start": "node dist/etsy-to-gnucash.js -h",
     "tdd": "jest --watch",
     "test": "jest",
+    "pree2e": "npm run build",
+    "e2e": "./e2e.sh",
     "typecheck": "tsc --noEmit"
   },
-  "keywords": [
-    "etsy",
-    "gnucash",
-    "csv"
-  ],
+  "keywords": ["etsy", "gnucash", "csv"],
   "author": "Stéphane TREBEL",
   "license": "MIT",
   "dependencies": {
