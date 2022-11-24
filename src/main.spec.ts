@@ -1,25 +1,35 @@
-import { readFileSync } from 'fs';
-import { join } from 'path';
-
 import { main } from './main';
-const mockFile = readFileSync(
-  join(__dirname, '../test/CA20210928_184319_simple.ofx'),
-  {
-    encoding: 'utf8',
-  }
-);
 
-const mockDependencies = {
-  logger: { log: () => {}, error: () => {} },
-  readFile: () => Promise.resolve(mockFile),
-  writeFile: () => Promise.resolve(),
-} as any;
+const mockDependencies = (dependencies?: Record<string, unknown>) =>
+  ({
+    logger: { log: () => {}, error: () => {} },
+    parse: () => [],
+    process: {
+      env: {
+        ACCOUNT_ETSY_BASE: 'Purchases:Etsy',
+        ACCOUNT_ETSY_ADS: 'Purchases:Etsy Ads',
+        ACCOUNT_ETSY_LISTING: 'Purchases:Frais de mise en vente',
+        ACCOUNT_ETSY_SHIPPING_FEES: 'Purchases:Shipping',
+        ACCOUNT_ETSY_REGULATORY_FEES: 'Purchases:Regulatory Operating fee',
+        ACCOUNT_ETSY_TRANSACTION_FEES: 'Purchases:Transaction fee',
+        ACCOUNT_ETSY_PROCESSING_FEES: 'Purchases:Processing fee',
+        ACCOUNT_ETSY_SALES: 'Income:Sales',
+        ACCOUNT_ETSY_SALES_TAX_PAID_BY_BUYER:
+          'Purchases:Sales tax paid by buyer',
+        ACCOUNT_GNUCASH_RECEIVABLE: 'Assets:Bank Account',
+      },
+    },
+    stringify: () => '',
+    readFile: () => Promise.resolve(''),
+    writeFile: () => Promise.resolve(),
+    ...dependencies,
+  } as any);
 
 describe('main()', () => {
   describe('When called with its dependencies and a file list', () => {
     it('Should return Void', () => {
       expect(
-        main(mockDependencies)({ filenameList: [''], outDir: '' })
+        main(mockDependencies())({ filenameList: [''], outDir: '' })
       ).resolves.toBeUndefined();
     });
   });

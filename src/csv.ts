@@ -1,15 +1,14 @@
 import { Config } from './config';
 
 type ProcessCSV = (dependencies: {
+  logger: typeof console;
   config: Config;
-}) => (parameters: {
-  csv: Array<Record<string, unknown>>;
-}) => Array<Record<string, unknown>>;
+}) => (csv: Array<Record<string, unknown>>) => Array<Record<string, unknown>>;
 export const processCSV: ProcessCSV =
   ({ config }) =>
-  ({ csv }) =>
-    csv.map((line) =>
-      Object.fromEntries(
+  (csv) => {
+    return csv.map((line) => {
+      return Object.fromEntries(
         Object.entries(line)
           .map(([key, value], index) => {
             // To account for localized headers, we'll only work on their relative position:
@@ -63,18 +62,24 @@ export const processCSV: ProcessCSV =
 
           // Filter out dropped keys
           .filter((entry) => entry?.length > 0)
-      )
-    );
+      );
+    });
+  };
 
 type ConvertDate = (dateLike: string) => string;
 export const convertDate: ConvertDate = (dateLike) => {
   const date = new Date(dateLike);
-  if (!date.toISOString()) {
-    throw new Error('Invalid date');
+  try {
+    // Trigger date check
+    !date.toISOString();
+    return `${date.getDate().toString().padStart(2, '0')}-${(
+      date.getMonth() + 1
+    )
+      .toString()
+      .padStart(2, '0')}-${date.getFullYear()}`;
+  } catch (error) {
+    throw new Error(`Invalid date: '${JSON.stringify(date)}'`);
   }
-  return `${date.getDate().toString().padStart(2, '0')}-${(date.getMonth() + 1)
-    .toString()
-    .padStart(2, '0')}-${date.getFullYear()}`;
 };
 
 type ConvertNet = (input: string) => string;

@@ -34,21 +34,19 @@ describe('CSV', () => {
     describe('Given a csv content', () => {
       it('Should return converted content', () => {
         expect(
-          processCSV({ config })({
-            csv: [
-              {
-                Date: '25 septembre 2022',
-                Type: 'TVA',
-                Titre: 'TVA: Etsy Ads',
-                Info: '',
-                Devise: 'EUR',
-                Montant: '--',
-                'Frais Et Taxes': '-€0.17',
-                Net: '-€0.17',
-                'Informations Fiscales': '--',
-              },
-            ],
-          })
+          processCSV({ config, logger: console })([
+            {
+              Date: '25 septembre 2022',
+              Type: 'TVA',
+              Titre: 'TVA: Etsy Ads',
+              Info: '',
+              Devise: 'EUR',
+              Montant: '--',
+              'Frais Et Taxes': '-€0.17',
+              Net: '-€0.17',
+              'Informations Fiscales': '--',
+            },
+          ])
         ).toEqual([
           {
             Date: '25-09-2022',

@@ -1,41 +1,26 @@
-import { readFile, writeFile } from 'fs';
+import { readFile, writeFile } from 'fs/promises';
 import { basename, join } from 'path';
-
-import * as dotenv from 'dotenv';
-dotenv.config();
-
 import { promisify } from 'util';
-const readFilePromisifed = promisify(readFile);
-const writeFilePromisifed = promisify(writeFile);
 
 import { option } from 'argv';
+import * as dotenv from 'dotenv';
+dotenv.config();
 import glob from 'glob';
 const globPromisifed = promisify(glob);
 
-import * as csvParse from 'csv-parse';
-const parsePromisifed = promisify(
-  csvParse.parse as (
-    input: Buffer | string,
-    callback?: csvParse.Callback
-  ) => csvParse.Parser
-);
-import * as csvStringify from 'csv-stringify';
+import { parse } from 'csv-parse/sync';
+import { stringify } from 'csv-stringify/sync';
+
 import { processCSV } from './csv';
 import { parseConfig } from './config';
-const stringifyPromisifed = promisify(
-  csvStringify.stringify as (
-    input: csvStringify.Input,
-    callback?: csvStringify.Callback
-  ) => csvStringify.Stringifier
-);
 
 type Main = (dependencies: {
   logger: typeof console;
-  parse: typeof parsePromisifed;
+  parse: typeof parse;
   process: typeof process;
-  stringify: typeof stringifyPromisifed;
-  readFile: typeof readFilePromisifed;
-  writeFile: typeof writeFilePromisifed;
+  stringify: typeof stringify;
+  readFile: typeof readFile;
+  writeFile: typeof writeFile;
 }) => (params: {
   filenameList: Array<string>;
   outDir: string;
@@ -44,6 +29,7 @@ export const main: Main = ({
   logger,
   readFile,
   parse,
+  process,
   stringify,
   writeFile,
 }) => {
@@ -59,8 +45,12 @@ export const main: Main = ({
         };
         log(`Begin fixing file`);
         return readFile(filename, { encoding: 'utf8' })
-          .then((x) => log(`Parsing data`) || x)
-          .then(parse)
+          .then((x) => {
+            return parse(x, {
+              columns: true,
+              skip_empty_lines: true,
+            });
+          })
           .then((x) => log(`Processing CSV`) || x)
           .then(processCSV({ config, logger }))
           .then((x) => log(`Stringify CSV`) || x)
@@ -75,11 +65,12 @@ export const main: Main = ({
             log(`File ${outputfile} has been written.`);
             return outputfile;
           })
-          .catch((error) =>
+          .catch((error) => {
             logger.error(
               `FATAL: ${error.message} during handling of file '${file}'`
-            )
-          );
+            );
+            logger.log(error.stack);
+          });
       })
     ).then(() => logger.log(`Finished !`));
 };
@@ -136,11 +127,11 @@ Will convert all files in <input_directory> and write a converted version in <ou
       // Main execution
       main({
         logger: console,
-        parse: parsePromisifed,
+        parse,
         process,
-        stringify: stringifyPromisifed,
-        readFile: readFilePromisifed,
-        writeFile: writeFilePromisifed,
+        readFile,
+        stringify,
+        writeFile,
       })({
         filenameList,
         outDir: args.options['outDir'],
