@@ -3,9 +3,6 @@
   "version": "1.0.0",
   "description": "Convert Etsy CSV export to GNUCash transaction import CSV files",
   "main": "src/main.js",
-  "directories": {
-    "test": "test"
-  },
   "scripts": {
     "clean": "npm run clean:dist",
     "clean:dist": "rm -rf dist",
@@ -15,7 +12,7 @@
     "prepackage": "npm run build",
     "package": "pkg --targets=node14,win --out-path dist dist/etsy-to-gnucash.js",
     "start": "node dist/etsy-to-gnucash.js -h",
-    "tdd": "jest --watch",
+    "tdd": "jest --watchAll",
     "test": "jest",
     "pree2e": "npm run build",
     "e2e": "./e2e.sh",
