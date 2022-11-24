@@ -1,0 +1,568 @@
+= Detailed documentation
+:toc:
+
+== Double-entry bookkeeping 101
+
+https://en.wikipedia.org/wiki/Double-entry_bookkeeping[Double Entry Bookkeeping] is a fundamental topic in accounting. In short, every transaction is split into two parts: sources and destinations (Let's just set aside «credit» and «debit» for the moment), and — most importantly — *sources and destinations totals must be equal*. Said another way: you have to account for everything in a transaction.
+
+For instance, imagine that you pay for stuff with cash:
+
+.Paying stuff with cash
+|===
+|Your cash|Merchant's pocket
+|-100
+|+100
+|===
+
+But you are not willy-nilly giving your cash for nothing, right ? You get something out of it (the stuff you purchased, for example a book).
+
+So we need to _account_ for this:
+
+.Purchasing a book with cash
+|===
+|Account|Amount
+|Your cash
+|-100
+|Merchant's pocket
+|+100
+|Your book purchase
+|+100
+|===
+
+Wait this isn't right, we have one «-100» on one side and two «+100» on the other, so that's no good. Actually we don't have to track the Merchant's pocket, so we can shorten our transaction to:
+
+.Purchasing a book with cash
+|===
+|Account|Amount
+|Cash
+|-100
+|Book purchases
+|+100
+|===
+
+Alright, that seems better. But actually we now more often than not use credit/debit card that act like a «temporary account» which is then adjusted either immediately or at the end of the month. So how would it look, accounting-wise ?
+
+.Purchasing a book with a credit card having immediate adjustment
+|===
+|Account|Amount|Type
+|Credit Card
+|-100
+|Payment
+|Credit Card
+|+100
+|Adjustment
+|Bank account
+|-100
+|Adjustment
+|Book purchases
+|+100
+|New purchase
+|===
+
+All this for one transaction ! Now you can see where we're going…let's buy several different stuff at once with our immediate adjustment credit card:
+
+.Purchasing stuff with a credit card having immediate adjustment
+|===
+|Account|Amount|Type
+|Credit Card
+|-100
+|Payment
+|Credit Card
+|+100
+|Adjustment
+|Bank account
+|-100
+|Adjustment
+|Home improvement purchases
+|+44
+|New purchase
+|Animal food purchases
+|+46
+|New purchase
+|Book purchases
+|+10
+|New purchase
+|===
+
+You can sum all the pluses and all the minuses, it will total to +100 and -100, so in the end our «transaction» (all the pluses and minuses form a Transaction) is balanced.
+
+== Why this matters for etsy-to-gnucash
+
+This matters because online shopping platforms like Etsy heavily uses these kind of transactions, and it makes sense since we can have a fine-grained accounting of many different things (like advertisements, shipping, customer payments, bank account transfer, etc. and of course lots and lots of VAT for each transaction stage !)
+
+https://gnucash.org/[GNUCash] is a wonderful piece of software that helps you tracking various accounts by following the double entry bookkeeping principle.
+
+So, all in all, `etsy-to-gnucash` is a tool that helps turn Etsy CSV extracts into GNUCash transactions.
+
+But — wait —, what _are_ Etsy transactions anyway ?
+
+== Etsy Transaction types (and what that entails for GNUCash)
+
+Etsy transactions are of multiple types:
+
+* advertisement fees
+* product listing fees
+* payments (from and to your assets source, like your bank account)
+* order transactions (which also have fees)
+
+=== Advertisement fees
+
+These are kinda straightforward: there's the fee, and VAT on the fee:
+
+.Etsy CSV entry for Advertisement
+|===
+|Date|Type|Titre|Info|Devise|Montant|Frais Et Taxes|Net|Informations Fiscales
+|2022-09-23
+|Marketing
+|Etsy Ads
+|Bill for click-throughs to your shop on Sep 8, 2022
+|EUR
+|--
+|-€0.99
+|-€0.99
+|--
+|2022-09-23
+|TVA
+|TVA:Etsy Ads
+|
+|EUR
+|--
+|-€0.20
+|-€0.20
+|--
+|===
+
+NOTE: «Montant» («Amount») is not specified for advertisements, only «Net» can realistically be used in this case.
+
+.Equivalent Advertisement transaction in double-entry bookkeeping
+|===
+|Date|Account|Amount|Type
+|2022-09-23
+|Expenses:Etsy:Ads
+|0.99 €
+|Fee
+|(same transaction)
+|Expenses:Etsy:Ads
+|0.20 €
+|VAT
+|(same transaction)
+|Assets:Etsy:Wallet
+|-1.19 €
+|Advertisement
+|===
+
+Several facts of note here:
+
+* Most obviously, amounts have been _reversed_ (minuses became pluses). This is because from Etsy point of view, you _owe_ money for advertisements (so it's a _deduction_, hence the minus sign), but from your account management point of view, you _spent_ money (hence you _add_ amounts to the total purchased). This is important for transaction balance purposes
+* Date are stated as «same transaction» because a transaction is a block on accounting movements, so actually the date for all three movements is 2022-09-23. It's just stated that way to enforce the fact that these movements are indeed part of the same block: one transaction
+* You start to see some GNUCash nomenclature here: the `Expenses:…` and `Assets:…` account categories. Indeed for importing in GNUCash we need to state precisely which account will be impacted by each movement for the transaction to make sense. Etsy transactions are 99% about adding and deducting from you main Etsy wallet account, which can be view as an Assets account (which «stores» money)
+* There are no dedicated account for VAT: they are just added to the same account for advertisements because you don't actually care how much amounts to VAT and how much amounts to advertisements: you only care that your wallet has been reduced by an amount for advertisements (including VAT). This eases up _greatly_ the cost of managing your GNUCash bookkeeping !
+
+So in the end, here is what can be generated as a CSV for GNUCash import:
+
+[source,csv]
+----
+2022-09-23,Advertisement,Etsy Ads,-1.19 €,Expenses:Services:Etsy:Wallet
+2022-09-23,TVA,TVA: Etsy Ads,0.20 €,Expenses:Services:Etsy:Etsy Ads
+2022-09-23,Marketing,Etsy Ads,0.99 €,Expenses:Services:Etsy:Etsy Ads
+----
+
+This will allow us to get a single transaction, dated 2022 September, 23rd, with three accounting movements
+
+NOTE: There seems to be one advertisement transaction per day in Etsy CSV file.
+
+=== Product listing fees
+
+These are also kinda straightforward: there's the fee, and VAT on the fee.
+
+.Etsy CSV entry for Product listing
+|===
+|Date|Type|Titre|Info|Devise|Montant|Frais Et Taxes|Net|Informations Fiscales
+|2022-09-06
+|Fee
+|Frais de mise en vente (0,20 USD)
+|Fiche produit n°1286104586
+|EUR
+|--
+|-€0.20
+|-€0.20
+|--
+|2022-09-06
+|TVA
+|TVA: listing
+|listing: 1286104586
+|EUR
+|--
+|-€0.04
+|-€0.04
+|--
+|===
+
+NOTE: «Montant» («Amount») as for advertisements, is not used, only «Net» can realistically be used in this case, too.
+
+.Equivalent Product listing transaction in double-entry bookkeeping
+|===
+|Date|Account|Amount|Type
+|2022-09-06
+|Expenses:Etsy:Listing
+|0.20 €
+|Fee
+|(same transaction)
+|Expenses:Etsy:Listing
+|0.04 €
+|VAT
+|(same transaction)
+|Assets:Etsy:Wallet
+|-0.24 €
+|Product Listing
+|===
+
+As you can see, there's not much difference with advertising: money comes out of your Etsy wallet, and goes in a dedicated account. And once again for easier management we put fee and VAT amounts into the same account.
+
+So in the end, here is what can be generated as a CSV for GNUCash import:
+
+[source,csv]
+----
+2022-09-06,Product Listing,1286104586,-0.24 €,Expenses:Services:Etsy:Wallet
+2022-09-06,TVA,1286104586,-0.04 €,Expenses:Services:Etsy:Frais de mise en vente
+2022-09-06,Fee,1286104586,-0.20 €,Expenses:Services:Etsy:Frais de mise en vente
+----
+
+WARNING: There will also be product listing movements in the order transaction, because of the automatic-relisting-upon-purchase feature, but the VAT movement has not the same name ! In a regular product listing fee transaction, VAT movement is named «TVA: listing», but in an order processing with relisting feature transaction, VAT for listing renewal movement is named «TVA: renew sold»…
+
+=== Payments FROM and TO your assets
+
+This one is quite simple on its own but has its own form and particularities so we must address it separately.
+
+Your assets can be a bank account, a Paypal wallet that's tied to a credit card, etc. so we're just using the «Assets» generic term here. Consider it a «your money source».
+
+==== Payment FROM your Assets
+
+This can happen when your Etsy Wallet has not been provisioned with enough funds and you go negative because of fees (like advertisements):
+
+.Etsy CSV entry for Payments FROM your Assets (in this case Paypal)
+|===
+|Date|Type|Titre|Info|Devise|Montant|Frais Et Taxes|Net|Informations Fiscales
+|2022-09-14
+|Paiement
+|Paiement PayPal
+|
+|EUR
+|--
+|€2.63
+|€2.63
+|--
+|===
+
+Here what's particular to these payments:
+
+* Amount is positive, because you put money from your Assets account into your Etsy wallet
+* There's only one line: not VAT here, for good reason ! It's neither a sale or a purchase, merely a fund transfer (but you can incur transaction fee from your provider, so beware how it's going to appear in GNUCash)
+* Again «Montant» is useless, only «Net» is of use. There's only one instance when it'll actually be useful, and we will tackle that in the next section.
+
+So, if we were to input that in double-entry bookkeeping we are going to need an opposing account:
+
+.Equivalent Product listing transaction in double-entry bookkeeping
+|===
+|Date|Account|Amount|Type
+|2022-09-14
+|Assets:Etsy:Wallet
+|2.63 €
+|Payment
+|(same transaction)
+|Assets:Bank Account
+|-2.63 €
+|Paypal transaction
+|===
+
+And now here is how the Etsy wallet is refilled in GNUCash: from an `Assets:…` account to another `Assets:…` account. No Expenses nor Sales here !
+
+So in the end, here is what can be generated as a CSV for GNUCash import:
+
+[source,csv]
+----
+2022-09-14,Paiement,Paiement PayPal,2.63 €,Actifs:Services:Etsy:Wallet
+2022-09-14,Paiement,Paiement PayPal,-2.63 €,Actifs:Actifs actuels:Crédit Agricole:Compte-Chèques:Compte chèque PRO
+----
+
+TIP: One handy use of GNUCash is Bank account reconciliation. This very powerful feature allows you to attempt to match your bank account statement with your accounting software (GNUCash). By doing so you ensure that what you have in your information system matches 100% with your Bank. By isolating the Paypal (or other money transfer transaction) action in its own accounting movement, you ensure that you'll be able to match it with your bank statement when doing reconciliation.
+
+==== Payment TO your Assets
+
+This (hopefully) will happen when your Etsy wallet will have sufficient funds (through sales, yay !) to allow for a money transfer from your Etsy wallet to your assets (bank account, Paypal account, etc., whatever your have setup in Etsy):
+
+.Etsy CSV entry for Payments TO your Assets (in this case your bank account)
+|===
+|Date|Type|Titre|Info|Devise|Montant|Frais Et Taxes|Net|Informations Fiscales
+|2022-09-21
+|Virement
+|€53.36 virés sur votre compte bancaire
+|
+|EUR
+|--
+|--
+|--
+|--
+|===
+
+Some jarring stuff should surprise you with this entry:
+
+* The amount in not found in «Montant», nor «Net» ! It's in __the frigging description !__ 😫
+* There's still only one line: not VAT here, for good reason ! Like the FROM transfer it's neither a sale or a purchase, merely a fund transfer as well.
+
+So, if we were to input that in double-entry bookkeeping we are going to need an opposing account:
+
+.Equivalent Product listing transaction in double-entry bookkeeping
+|===
+|Date|Account|Amount|Type
+|2022-09-14
+|Assets:Etsy:Wallet
+|-53.36 €
+|Wire transfer
+|(same transaction)
+|Assets:Bank Account
+|53.36 €
+|Wire transfer
+|===
+
+No surprises here, just like the previous transfer but reversed.
+
+So in the end, here is what can be generated as a CSV for GNUCash import:
+
+[source,csv]
+----
+2022-09-14,Virement,Wire transfer,-53.36 €,Actifs:Services:Etsy:Wallet
+2022-09-14,Virement,Wire transfer,53.36 €,Actifs:Actifs actuels:Crédit Agricole:Compte-Chèques:Compte chèque PRO
+----
+
+TIP: Again, here having dedicated assets account for bank accounts and dedicated accounting movements for assets transfer allows for bank account reconciliation.
+
+=== Orders
+
+The big one, and the one you want to have the most: Orders !
+
+WARNING: Now the usual disclaimer: etsy-to-gnucash is in full development so not all particulars of the Etsy workflow have been accurately modeled, so if you see something that needs adjustment (or is plain wrong) feel free to https://github.com/StephaneTrebel/etsy-to-gnucash/issues[open an issue] and you are more than welcomed to https://github.com/StephaneTrebel/etsy-to-gnucash/pulls[create a new Pull Request] to help me improve things !
+
+So what's so specific about orders ? Well, see for yourself:
+
+.Etsy CSV entry for an Order
+|===
+|Date|Type|Titre|Info|Devise|Montant|Frais Et Taxes|Net|Informations Fiscales
+|2022-09-11
+|Sale
+|Payment for Order #2605789438
+|
+|EUR
+|€83.16
+|--
+|€83.16
+|--
+|2022-09-11
+|Fee
+|Transaction fee: MY_AWESOME_ITEM
+|Order #2605789438
+|EUR
+|--
+|-€4.03
+|-€4.03
+|--
+|2022-09-11
+|TVA
+|TVA: transaction
+|transaction: 3183217608
+|EUR
+|--
+|-€0.81
+|-€0.81
+|--
+|2022-09-11
+|Fee
+|Transaction fee: Shipping
+|Order #2605789438
+|EUR
+|--
+|-€0.88
+|-€0.88
+|--
+|2022-09-11
+|TVA
+|TVA: shipping transaction
+|
+|EUR
+|--
+|-€0.18
+|-€0.18
+|--
+|2022-09-11
+|Fee
+|Regulatory Operating fee
+|Order #2605789438
+|EUR
+|--
+|-€0.30
+|-€0.30
+|--
+|2022-09-11
+|TVA
+|TVA: Regulatory Operating fee
+|
+|EUR
+|--
+|-€0.06
+|-€0.06
+|--
+|2022-09-11
+|Fee
+|Processing fee
+|Order #2605789438
+|EUR
+|--
+|-€3.63
+|-€3.63
+|--
+|2022-09-11
+|VAT
+|VAT: Processing Fee
+|Order #2605789438
+|EUR
+|--
+|-€0.73
+|-€0.73
+|--
+|2022-09-11
+|Tax
+|Sales tax paid by buyer
+|Order #2605789438
+|EUR
+|--
+|-€7.56
+|-€7.56
+|--
+|2022-09-11
+|Fee
+|Frais de mise en vente (0,20 USD)
+|Fiche produit n°1264517902
+|EUR
+|--
+|-€0.20
+|-€0.20
+|--
+|2022-09-11
+|TVA
+|TVA: auto-renew sold
+|auto-renew sold : 1264517902
+|EUR
+|--
+|-€0.04
+|-€0.04
+|--
+|===
+
+There's a lot to unpack here so let's address everything step-by-step:
+
+* The first line is obviously the most important: It's the total paid for the order by your dearest customer. From this amount several fees and VAT amounts will be deducted. You can tell how important this line is by the fact it's the only line that uses the «Montant» column 😂
+* The next two lines are Etsy transaction fee for the order item and the fee related VAT. Note that the VAT line mentions a transaction number that does not match the order number. I'm still at a loss about what is its meaning…
+* Next two lines are related to shipping fee. It's not the overall shipping fee but Etsy fee on shipping (and the related VAT, obviously)
+* Next two lines are Regulatory Operating Fee and its VAT. It's the cost of doing business in some countries (like France, in this case)
+* Next two lines are Etsy Processing Fee of the overall order (and its VAT)
+* «Sales tax paid by buyer» is paid — as stated — by the buyer, is meant to be reversed by Etsy to relevant states or countries
+* Finally the last two lines occur when there is an automatic relisting of the item(s) you just sold, and the related VAT (with its custom description indicating it is not a regular product listing, but an «auto-renew» product listing).
+
+With all that being said, how would we handle that with double-entry bookkeeping ?
+
+.Equivalent Order transaction in double-entry bookkeeping
+|===
+|Date|Account|Credit|Debit|Type
+|2022-09-11
+|Assets:Etsy:Wallet
+|83.16 €
+|
+|Order #2605789438
+|(same transaction)
+|Expenses:Etsy:Transaction fees
+|
+|€4.03
+|Order #2605789438
+|(same transaction)
+|Expenses:Etsy:Transaction fees
+|
+|€0.81
+|Order #2605789438 (VAT)
+|(same transaction)
+|Expenses:Etsy:Shipping fees
+|
+|€0.88
+|Order #2605789438
+|(same transaction)
+|Expenses:Etsy:Shipping fees
+|
+|€0.18
+|Order #2605789438 (VAT)
+|(same transaction)
+|Expenses:Etsy:Regulatory Operating fees
+|
+|€0.30
+|Order #2605789438
+|(same transaction)
+|Expenses:Etsy:Regulatory Operating fees
+|
+|€0.06
+|Order #2605789438 (VAT)
+|(same transaction)
+|Expenses:Etsy:Processing fees
+|
+|€3.63
+|Order #2605789438
+|(same transaction)
+|Expenses:Etsy:Processing fees
+|
+|€0.73
+|Order #2605789438 (VAT)
+|(same transaction)
+|Expenses:Etsy:Sales tax paid by buyer
+|
+|€7.56
+|Order #2605789438
+|(same transaction)
+|Expenses:Etsy:Product listing fees
+|
+|€0.20
+|auto-renew sold: 1264517902
+|(same transaction)
+|Expenses:Etsy:Product listing fees
+|
+|€0.04
+|auto-renew sold: 1264517902 (VAT)
+|(same transaction)
+|Revenue:Etsy:Sales
+|
+|€64.74
+|Order #2605789438
+|===
+
+Finally, the last GNUCash account type appears: `Revenue:…`
+
+It is this account that will help you track accurately how much you truly made with Etsy, all fees and VAT deducted, from the amount initially paid by your customer.
+
+So in the end, here is what can be generated as a CSV for GNUCash import:
+
+[source,csv]
+----
+Date,Type,Description,Credit,Debit,Account
+2022-09-11,Order,Payment for Order #2605789438,83.16 €,,Assets:Etsy:Wallet
+2022-09-11,Fee,Transaction fee: My awesome item,,4.03 €,Expenses:Services:Etsy:Transaction fees
+2022-09-11,TVA,TVA: transaction,,0.81 €,Expenses:Services:Etsy:Transaction fees
+2022-09-11,TVA,TVA: shipping_transaction,,0.18 €,Expenses:Services:Etsy:Shipping fees
+2022-09-11,Fee,Transaction fee: Shipping,,0.88 €,Expenses:Services:Etsy:Shipping
+2022-09-11,Fee,Regulatory Operating fee,,0.30 €,Expenses:Services:Etsy:Regulatory Operating fees
+2022-09-11,TVA,TVA: Regulatory Operating fee,,0.06 €,Expenses:Services:Etsy:Regulatory Operating fees
+2022-09-11,Fee,Processing fee,,3.63 €,Expenses:Services:Etsy:Processing fees
+2022-09-11,VAT,VAT: Processing Fee,,0.73 €,Expenses:Services:Etsy:Processing fees
+2022-09-11,Tax,Sales tax paid by buyer,,7.56 €,Expenses:Services:Etsy:Sales tax paid by buyer
+2022-09-11,Fee,auto-renew sold: 1264517902,,0.20 €,Expenses:Services:Etsy:Product Listing fees
+2022-09-11,TVA,auto-renew sold: 1264517902 (VAT),,0.04 €,Expenses:Services:Etsy:Product Listing fees
+2022-09-11,Sale,Order #2605789438,,64.74 €,Revenue:Etsy:Sales
+----
+
+TIP: Again, here having dedicated assets account for bank accounts and dedicated accounting movements for assets transfer allows for bank account reconciliation.
+
