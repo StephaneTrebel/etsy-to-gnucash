@@ -1,70 +1,26 @@
 import { Config } from './config';
 
-type ProcessCSV = (dependencies: {
-  logger: typeof console;
-  config: Config;
-}) => (csv: Array<Record<string, unknown>>) => Array<Record<string, unknown>>;
-export const processCSV: ProcessCSV =
-  ({ config }) =>
-  (csv) => {
-    return csv.map((line) => {
-      return Object.fromEntries(
-        Object.entries(line)
-          .map(([key, value], index) => {
-            // To account for localized headers, we'll only work on their relative position:
-            // 0: Date
-            // 1: Type
-            // etc.
-            const converters: Record<
-              number | 'unknown',
-              (key: string, value: unknown) => [string, unknown] | []
-            > = {
-              unknown: (key, value) => [key, value],
-              // 0: Date
-              0: (key, value) => [key, convertDate(value as string)],
-              // 1: Type
-              1: (key, value) => [key, value],
-              // 2: Title
-              2: (key, value) => [key, value],
-              // 3: Info: ''
-              3: (_key, _value) => [
-                /* dropped */
-              ],
-              // 4: Devise: 'EUR',
-              4: (_key, _value) => [
-                /* dropped */
-              ],
-              // 5: Montant: '--',
-              5: (_key, _value) => [
-                /* dropped */
-              ],
-              // 6: 'Frais Et Taxes': '-€0.17',
-              6: (_key, _value) => [
-                /* dropped */
-              ],
-              // 7: Net: '-€0.17',
-              7: (key, value) => [key, convertNet(line, value as string)],
-              // 8: 'Informations Fiscales': '--',
-              8: (_key, _value) => [
-                /* dropped */
-              ],
-            };
-            return (
-              converters[index]?.(key, value) || converters.unknown(key, value)
-            );
-          })
+export interface EtsyCSVLine {
+  Date: string;
+  Type: string;
+  Titre: string;
+  Info: string;
+  Devise: string;
+  Montant: string;
+  'Frais Et Taxes': string;
+  Net: string;
+  'Informations Fiscales': string;
+}
 
-          // Add new fields
-          .concat([
-            ['De', config.ACCOUNT_ETSY_WALLET],
-            ['Vers', getToAccount({ config })(line)],
-          ])
-
-          // Filter out dropped keys
-          .filter((entry) => entry?.length > 0)
-      );
-    });
-  };
+export interface ConvertedCSVLine {
+  TransactionId: number;
+  Date: string;
+  Type: string;
+  Compte: string;
+  Titre: string;
+  Credit: string;
+  Debit: string;
+}
 
 type ConvertDate = (dateLike: string) => string;
 export const convertDate: ConvertDate = (dateLike) => {
@@ -82,103 +38,62 @@ export const convertDate: ConvertDate = (dateLike) => {
   }
 };
 
-type ConvertNet = (line: Record<string, unknown>, input: string) => string;
-export const convertNet: ConvertNet = (line, input) => {
-  if (
-    /virés sur votre compte bancaire/.test(Object.values(line)[2] as string)
-  ) {
-    input = '3';
+type GetAmount = (line: EtsyCSVLine) => string;
+export const getAmount: GetAmount = (line) => {
+  let input: string;
+  const values = Object.values(line);
+  const results = values[2].match(/(.*) virés sur votre compte bancaire/);
+  if (results?.length) {
+    input = results[1]; // Titre
+  } else {
+    input = values[7]; // Net
   }
-  if (input === '--') {
-    return input;
-  }
-  return `${input.replace('€', '')} €`;
+  return `${input.replace(/[€-]*/, '')} €`;
 };
 
-type GetToAccount = (dependencies: {
+type ProcessCSV = (dependencies: {
+  logger: typeof console;
   config: Config;
-}) => (line: Record<string, unknown>) => string;
-export const getToAccount: GetToAccount =
-  ({ config }) =>
-  (line) => {
-    const destinationAccountFromTypes: Array<(x: string) => string | false> = [
-      (x: string) =>
-        x === 'TVA: Etsy Ads' ? config['ACCOUNT_ETSY_ADS'] : false,
-      (x: string) =>
-        x === 'Crédit Etsy Ads' ? config['ACCOUNT_ETSY_ADS'] : false,
-      (x: string) => (x === 'Etsy Ads' ? config['ACCOUNT_ETSY_ADS'] : false),
-
-      (x: string) =>
-        x === 'TVA: listing' ? config['ACCOUNT_ETSY_LISTING'] : false,
-      (x: string) =>
-        x === 'Frais de mise en vente (0,20 USD)'
-          ? config['ACCOUNT_ETSY_LISTING']
-          : false,
-      (x: string) =>
-        /TVA: auto-renew sold/.test(x) ? config['ACCOUNT_ETSY_LISTING'] : false,
-      (x: string) =>
-        x === 'TVA: renew sold' ? config['ACCOUNT_ETSY_LISTING'] : false,
-
-      (x: string) =>
-        /virés sur votre compte bancaire/.test(x)
-          ? config['ACCOUNT_GNUCASH_RECEIVABLE']
-          : false,
-
-      (x: string) =>
-        x === 'TVA: shipping_transaction'
-          ? config['ACCOUNT_ETSY_SHIPPING_FEES']
-          : false,
-      (x: string) =>
-        x === 'Transaction fee: Shipping'
-          ? config['ACCOUNT_ETSY_SHIPPING_FEES']
-          : false,
-
-      (x: string) =>
-        x === 'Regulatory Operating fee'
-          ? config['ACCOUNT_ETSY_REGULATORY_FEES']
-          : false,
-      (x: string) =>
-        x === 'TVA: Regulatory Operating fee'
-          ? config['ACCOUNT_ETSY_REGULATORY_FEES']
-          : false,
-
-      (x: string) =>
-        /Transaction fee: (?!Shipping)/.test(x)
-          ? config['ACCOUNT_ETSY_TRANSACTION_FEES']
-          : false,
-      (x: string) =>
-        x === 'TVA: transaction'
-          ? config['ACCOUNT_ETSY_TRANSACTION_FEES']
-          : false,
-
-      (x: string) =>
-        x === 'Processing fee' ? config['ACCOUNT_ETSY_PROCESSING_FEES'] : false,
-      (x: string) =>
-        x === 'VAT: Processing Fee'
-          ? config['ACCOUNT_ETSY_PROCESSING_FEES']
-          : false,
-
-      (x: string) =>
-        /Payment for Order/.test(x) ? config['ACCOUNT_ETSY_SALES'] : false,
-
-      (x: string) =>
-        /Paiement/.test(x) ? config['ACCOUNT_GNUCASH_RECEIVABLE'] : false,
-
-      (x: string) =>
-        x === 'Sales tax paid by buyer'
-          ? config['ACCOUNT_ETSY_SALES_TAX_PAID_BY_BUYER']
-          : false,
-    ];
-
-    const lineType = (
-      Object.values(line) as Record<number, string>
-    )[2] as string;
-
-    return (
-      destinationAccountFromTypes.reduce(
-        (previous: string | false, current) =>
-          previous ? previous : current(lineType),
-        false
-      ) || 'Unknown'
+}) => (csv: Array<EtsyCSVLine>) => Array<ConvertedCSVLine>;
+export const processCSV: ProcessCSV =
+  (
+    {
+      /*config*/
+    }
+  ) =>
+  (csv) =>
+    csv.map(
+      (_line) =>
+        // convertAdvertisementLine(line) as ConvertedCSVLine
+        ({} as ConvertedCSVLine)
     );
+
+type ConvertAdvertisementLine = (
+  config: Config
+) => (line: EtsyCSVLine) => [ConvertedCSVLine, ConvertedCSVLine];
+export const convertAdvertisementLine: ConvertAdvertisementLine =
+  (config) => (line) => {
+    const transactionId = Math.ceil(Math.random() * 1000000);
+    const amount = getAmount(line);
+		const date = convertDate(line.Date)
+    return [
+      {
+        TransactionId: transactionId,
+        Date: date,
+        Type: line.Type,
+        Compte: config['ACCOUNT_ETSY_ADS'],
+        Titre: line.Titre,
+        Credit: amount,
+        Debit: '',
+      },
+      {
+        TransactionId: transactionId,
+        Date: date,
+        Type: line.Type,
+        Compte: config['ACCOUNT_ETSY_WALLET'],
+        Titre: line.Titre,
+        Credit: '',
+        Debit: amount,
+      },
+    ];
   };
