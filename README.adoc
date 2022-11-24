@@ -1,21 +1,15 @@
+= etsy-to-gnucash
+Stéphane TRÉBEL <stephane.trebel@gmail.com>
+v1.0.0, 2022-11-01
+:toc:
+
 == About
 
 This repository provides a tool to convert Etsy Finance CSV export file
 to a format that can be imported in GNUCash transaction import tool.
+If you need more info on how it works and why it exists, feel free to dive in the <<_detailed_documentation,detailed documentation>>.
 
-=== Example
-
-Before:
-
-....
-TBD
-....
-
-After:
-
-....
-TBD
-....
+WARNING: etsy-to-gnucash is in its infancy and thus localization is not currently supported (feel free to help me with it through PRs !). CSV are meant to be in Etsy *FRENCH* version, so headers listed here will be in french. The rest of the code (notably the accounts) can be specified with whatever you have setup in GNUCash so localization will not matter here but for CSV parsing and handling, sorry but it's french-based 🙏)
 
 == How to use
 
@@ -30,3 +24,172 @@ overwriting if `inputDir` === `outDir`
 == Tests
 
 Of course there are tests, just `npm run test` !
+
+== Detailed documentation
+
+=== Double-entry bookkeeping 101
+
+https://en.wikipedia.org/wiki/Double-entry_bookkeeping[Double Entry Bookkeeping] is a fundamental topic in accounting. In short, every transaction is split into two parts: sources and destinations (Let's just set aside «credit» and «debit» for the moment), and — most importantly — *sources and destinations totals must be equal*. Said another way: you have to account for everything in a transaction.
+
+For instance, imagine that you pay for stuff with cash:
+
+.Paying stuff with cash
+|===
+|Your cash|Merchant's pocket
+|-100
+|+100
+|===
+
+But you are not willy-nilly giving your cash for nothing, right ? You get something out of it (the stuff you purchased, for example a book).
+
+So we need to _account_ for this:
+
+.Purchasing a book with cash
+|===
+|Account|Amount
+|Your cash
+|-100
+|Merchant's pocket
+|+100
+|Your book purchase
+|+100
+|===
+
+Wait this isn't right, we have one «-100» on one side and two «+100» on the other, so that's no good. Actually we don't have to track the Merchant's pocket, so we can shorten our transaction to:
+
+.Purchasing a book with cash
+|===
+|Account|Amount
+|Cash
+|-100
+|Book purchases
+|+100
+|===
+
+Alright, that seems better. But actually we now more often than not use credit/debit card that act like a «temporary account» which is then adjusted either immediately or at the end of the month. So how would it look, accounting-wise ?
+
+.Purchasing a book with a credit card having immediate adjustment
+|===
+|Account|Amount|Type
+|Credit Card
+|-100
+|Payment
+|Credit Card
+|+100
+|Adjustment
+|Bank account
+|-100
+|Adjustment
+|Book purchases
+|+100
+|New purchase
+|===
+
+All this for one transaction ! Now you can see where we're going…let's buy several different stuff at once with our immediate adjustment credit card:
+
+.Purchasing stuff with a credit card having immediate adjustment
+|===
+|Account|Amount|Type
+|Credit Card
+|-100
+|Payment
+|Credit Card
+|+100
+|Adjustment
+|Bank account
+|-100
+|Adjustment
+|Home improvement purchases
+|+44
+|New purchase
+|Animal food purchases
+|+46
+|New purchase
+|Book purchases
+|+10
+|New purchase
+|===
+
+You can sum all the pluses and all the minuses, it will total to +100 and -100, so in the end our «transaction» (all the pluses and minuses form a Transaction) is balanced.
+
+=== Why this matters for etsy-to-gnucash
+
+This matters because online shopping platforms like Etsy heavily uses these kind of transactions, and it makes sense since we can have a fine-grained accounting of many different things (like advertisements, shipping, customer payments, bank account transfer, etc. and of course lots and lots of VAT for each transaction stage !)
+
+https://gnucash.org/[GNUCash] is a wonderful piece of software that helps you tracking various accounts by following the double entry bookkeeping principle.
+
+So, all in all, `etsy-to-gnucash` is a tool that helps turn Etsy CSV extracts into GNUCash transactions.
+
+But — wait —, what _are_ Etsy transactions anyway ?
+
+Etsy transactions are of multiple types:
+
+* advertisement fees
+* product listing fees
+* order transactions (which also have fees)
+
+==== Advertisement fees
+
+These are kinda straightforward: there's the fee, and VAT on the fee:
+
+.Etsy CSV entry for Advertisement
+|===
+|Date|Type|Titre|Info|Devise|Montant|Frais Et Taxes|Net|Informations Fiscales
+|2022-09-23
+|Marketing
+|Etsy Ads
+|Bill for click-throughs to your shop on Sep 8, 2022
+|EUR
+|--
+|-€0.99
+|-€0.99
+|--
+|2022-09-23
+|TVA
+|TVA:Etsy Ads
+|
+|EUR
+|--
+|-€0.20
+|-€0.20
+|--
+|===
+
+NOTE: «Montant» («Amount») is not specified for advertisements, only «Net» can realistically be used in this case.
+
+.Equivalent Advertisement transaction in double-entry bookkeeping
+|===
+|Date|Account|Amount|Type
+|2022-09-23
+|Expenses:Etsy Ads
+|0.99 €
+|Fee
+|(same transaction)
+|Expenses:Etsy Ads
+|0.20 €
+|VAT
+|(same transaction)
+|Expenses:Your Etsy Wallet
+|-1.19 €
+|Purchase
+|===
+
+Several conversions happened here:
+
+* Most obviously, amounts have been _reversed_ (minuses became pluses). This is because from Etsy point of view, you _owe_ money for advertisements (so it's a _deduction_, hence the minus sign), but from your account management point of view, you _spent_ money (hence you _add_ amounts to the total purchased). This is important for transaction balance purposes
+* Date are stated as «same transaction» because a transaction is a block on accounting movements, so actually the date for all three movements is 2022-09-23. It's just stated that way to enforce the fact that these movements are indeed part of the same block: one transaction.
+* You start to see some GNUCash nomenclature here: the Expenses:… account category. Indeed for importing in GNUCash we need to state precisely which account will be impacted by each movement for the transaction to make sense. Etsy transactions are 99% about adding and deducting from you main Etsy wallet account.
+* There are no dedicated account for VAT: they are just added to the same account for advertisements because you don't actually care how much amounts to VAT and how much amounts to advertisements: you only care that your wallet has been reduced by an amount for advertisements (including VAT). This eases up _greatly_ the cost of managing your GNUCash bookkeeping !
+
+So in the end, here is what is generated as a CSV for GNUCash import:
+
+[source,csv]
+----
+2022-09-23,Expenses,Etsy Ads,-1.19 €,Dépenses:Services:Etsy
+2022-09-23,TVA,TVA: Etsy Ads,0.20 €,Dépenses:Services:Etsy:Etsy Ads
+2022-09-23,Marketing,Etsy Ads,0.99 €,Dépenses:Services:Etsy:Etsy Ads
+----
+
+This will allow us to get a single transaction, dated 2022 September, 23rd, with three accounting movements
+
+NOTE: There seems to be one advertisement transaction per day in Etsy CSV file.
