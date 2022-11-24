@@ -40,34 +40,49 @@ type Main = (dependencies: {
   filenameList: Array<string>;
   outDir: string;
 }) => Promise<void>;
-export const main: Main =
-  ({ logger, readFile, parse, stringify, writeFile }) =>
-  ({ filenameList, outDir }) =>
+export const main: Main = ({
+  logger,
+  readFile,
+  parse,
+  stringify,
+  writeFile,
+}) => {
+  logger.log(`[CONFIG] Parsing environment variables for config`);
+  const config = parseConfig(process);
+  return ({ filenameList, outDir }) =>
     Promise.all(
       filenameList.map((filename) => {
-        logger.log(`Begin fixing file ${filename}...`);
+        const file = basename(filename);
+        const log = function (message: string): false {
+          logger.log(`[${file}] ${message}`);
+          return false;
+        };
+        log(`Begin fixing file`);
         return readFile(filename, { encoding: 'utf8' })
+          .then((x) => log(`Parsing data`) || x)
           .then(parse)
-          .then(processCSV({ config: parseConfig(process) }))
+          .then((x) => log(`Processing CSV`) || x)
+          .then(processCSV({ config, logger }))
+          .then((x) => log(`Stringify CSV`) || x)
           .then((convertedCSV) => stringify(convertedCSV))
+          .then((x) => log(`Writing output file`) || x)
           .then(async (serializedCSV) => {
-            const outputFilename = join(
+            const outputfile = join(
               outDir,
-              `${basename(filename, '.csv')}_converted.csv`
+              `${basename(file, '.csv')}_converted.csv`
             );
-            await writeFile(outputFilename, serializedCSV);
-            return outputFilename;
+            await writeFile(outputfile, serializedCSV);
+            log(`File ${outputfile} has been written.`);
+            return outputfile;
           })
-          .then((outputFilename) =>
-            logger.log(`File ${outputFilename} has been written.`)
-          )
           .catch((error) =>
             logger.error(
-              `FATAL: ${error.message} during handling of file ${filename}.`
+              `FATAL: ${error.message} during handling of file '${file}'`
             )
           );
       })
     ).then(() => logger.log(`Finished !`));
+};
 
 if (process.env['NODE_ENV'] !== 'test') {
   // Argv setup
