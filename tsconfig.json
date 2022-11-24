@@ -20,6 +20,7 @@
     "noUncheckedIndexedAccess": true,
     "noImplicitOverride": true,
     "noPropertyAccessFromIndexSignature": true,
+    "noErrorTruncation": true,
 
     "moduleResolution": "node",
     "esModuleInterop": true,
