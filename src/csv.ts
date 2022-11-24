@@ -56,7 +56,7 @@ export const processCSV: ProcessCSV =
 
           // Add new fields
           .concat([
-            ['De', config.ACCOUNT_ETSY_BASE],
+            ['De', config.ACCOUNT_ETSY_WALLET],
             ['Vers', getToAccount({ config })(line)],
           ])
 

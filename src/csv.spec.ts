@@ -2,7 +2,8 @@ import { Config } from './config';
 import { convertDate, processCSV } from './csv';
 
 const config: Config = {
-  ACCOUNT_ETSY_BASE: 'ACCOUNT_ETSY_BASE',
+  ACCOUNT_ETSY_WALLET: 'ACCOUNT_ETSY_WALLET',
+  ACCOUNT_GNUCASH_RECEIVABLE: 'ACCOUNT_GNUCASH_RECEIVABLE',
   ACCOUNT_ETSY_ADS: 'ACCOUNT_ETSY_ADS',
   ACCOUNT_ETSY_LISTING: 'ACCOUNT_ETSY_LISTING',
   ACCOUNT_ETSY_PROCESSING_FEES: 'ACCOUNT_ETSY_PROCESSING_FEES',
@@ -11,11 +12,9 @@ const config: Config = {
   ACCOUNT_ETSY_SALES_TAX_PAID_BY_BUYER: 'ACCOUNT_ETSY_SALES_TAX_PAID_BY_BUYER',
   ACCOUNT_ETSY_SHIPPING_FEES: 'ACCOUNT_ETSY_SHIPPING_FEES',
   ACCOUNT_ETSY_TRANSACTION_FEES: 'ACCOUNT_ETSY_TRANSACTION_FEES',
-  ACCOUNT_GNUCASH_RECEIVABLE: 'ACCOUNT_GNUCASH_RECEIVABLE',
 };
 
 describe('CSV', () => {
-
   describe('convertDate()', () => {
     describe('Given a unparsable date', () => {
       it('Should throw an error', () => {
@@ -52,7 +51,7 @@ describe('CSV', () => {
           {
             Date: '25-09-2022',
             Type: 'TVA',
-            De: 'ACCOUNT_ETSY_BASE',
+            De: 'ACCOUNT_ETSY_WALLET',
             Vers: 'ACCOUNT_ETSY_ADS',
             Titre: 'TVA: Etsy Ads',
             Net: '-0.17 €',

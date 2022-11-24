@@ -6,7 +6,8 @@ const mockDependencies = (dependencies?: Record<string, unknown>) =>
     parse: () => [],
     process: {
       env: {
-        ACCOUNT_ETSY_BASE: 'Purchases:Etsy',
+        ACCOUNT_ETSY_WALLET: 'Purchases:Etsy',
+        ACCOUNT_GNUCASH_RECEIVABLE: 'Assets:Bank Account',
         ACCOUNT_ETSY_ADS: 'Purchases:Etsy Ads',
         ACCOUNT_ETSY_LISTING: 'Purchases:Frais de mise en vente',
         ACCOUNT_ETSY_SHIPPING_FEES: 'Purchases:Shipping',
@@ -16,7 +17,6 @@ const mockDependencies = (dependencies?: Record<string, unknown>) =>
         ACCOUNT_ETSY_SALES: 'Income:Sales',
         ACCOUNT_ETSY_SALES_TAX_PAID_BY_BUYER:
           'Purchases:Sales tax paid by buyer',
-        ACCOUNT_GNUCASH_RECEIVABLE: 'Assets:Bank Account',
       },
     },
     stringify: () => '',

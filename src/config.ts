@@ -1,5 +1,6 @@
 export interface Config {
-  ACCOUNT_ETSY_BASE: string;
+  ACCOUNT_ETSY_WALLET: string;
+  ACCOUNT_GNUCASH_RECEIVABLE: string;
   ACCOUNT_ETSY_ADS: string;
   ACCOUNT_ETSY_LISTING: string;
   ACCOUNT_ETSY_PROCESSING_FEES: string;
@@ -8,7 +9,6 @@ export interface Config {
   ACCOUNT_ETSY_SALES_TAX_PAID_BY_BUYER: string;
   ACCOUNT_ETSY_SHIPPING_FEES: string;
   ACCOUNT_ETSY_TRANSACTION_FEES: string;
-  ACCOUNT_GNUCASH_RECEIVABLE: string;
 }
 
 const throwError = (message: string) => {
@@ -20,8 +20,11 @@ export const parseConfig: ParseConfig = (process) => {
   const errorFn = (key: string) =>
     throwError(`Please set a value for "${key}" in .env file`);
   return {
-    ACCOUNT_ETSY_BASE:
-      process.env['ACCOUNT_ETSY_BASE'] || errorFn('ACCOUNT_ETSY_BASE'),
+    ACCOUNT_ETSY_WALLET:
+      process.env['ACCOUNT_ETSY_WALLET'] || errorFn('ACCOUNT_ETSY_WALLET'),
+    ACCOUNT_GNUCASH_RECEIVABLE:
+      process.env['ACCOUNT_GNUCASH_RECEIVABLE'] ||
+      errorFn('ACCOUNT_GNUCASH_RECEIVABLE'),
     ACCOUNT_ETSY_ADS:
       process.env['ACCOUNT_ETSY_ADS'] || errorFn('ACCOUNT_ETSY_ADS'),
     ACCOUNT_ETSY_LISTING:
@@ -43,8 +46,5 @@ export const parseConfig: ParseConfig = (process) => {
     ACCOUNT_ETSY_TRANSACTION_FEES:
       process.env['ACCOUNT_ETSY_TRANSACTION_FEES'] ||
       errorFn('ACCOUNT_ETSY_TRANSACTION_FEES'),
-    ACCOUNT_GNUCASH_RECEIVABLE:
-      process.env['ACCOUNT_GNUCASH_RECEIVABLE'] ||
-      errorFn('ACCOUNT_GNUCASH_RECEIVABLE'),
   };
 };
