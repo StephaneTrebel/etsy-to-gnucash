@@ -1,0 +1,5 @@
+ID,Date,Type,Compte,Description,Crédit,Débit
+1,25/09/22,Marketing,Dépenses:Services:Etsy:Etsy Ads,"Bill for click-throughs to your shop on Sep 24, 2022","1,44",
+1,25/09/22,Marketing,Actifs:Etsy:Wallet,"Bill for click-throughs to your shop on Sep 24, 2022",,"1,44"
+1,25/09/22,TVA,Dépenses:Services:Etsy:Etsy Ads,TVA: Etsy Ads (VAT),"0,17",
+1,25/09/22,TVA,Actifs:Etsy:Wallet,TVA: Etsy Ads (VAT),,"0,17"
