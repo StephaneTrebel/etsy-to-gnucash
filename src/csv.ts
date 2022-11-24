@@ -56,26 +56,30 @@ type ProcessCSV = (dependencies: {
   config: Config;
 }) => (csv: Array<EtsyCSVLine>) => Array<ConvertedCSVLine>;
 export const processCSV: ProcessCSV =
-  (
-    {
-      /*config*/
-    }
-  ) =>
+  ({ config }) =>
   (csv) =>
-    csv.map(
-      (_line) =>
-        // convertAdvertisementLine(line) as ConvertedCSVLine
-        ({} as ConvertedCSVLine)
-    );
+    csv
+      .map((line, index) =>
+        convertAdvertisementLine(config)({
+          line,
+          // Avoids 0-based transaction ids
+          // (not sure GNUCash would like them)
+          transactionId: index + 1,
+        })
+      )
+      .flat();
 
 type ConvertAdvertisementLine = (
   config: Config
-) => (line: EtsyCSVLine) => [ConvertedCSVLine, ConvertedCSVLine];
+) => (params: {
+  line: EtsyCSVLine;
+  transactionId: number;
+}) => [ConvertedCSVLine, ConvertedCSVLine];
 export const convertAdvertisementLine: ConvertAdvertisementLine =
-  (config) => (line) => {
-    const transactionId = Math.ceil(Math.random() * 1000000);
+  (config) =>
+  ({ line, transactionId }) => {
     const amount = getAmount(line);
-		const date = convertDate(line.Date)
+    const date = convertDate(line.Date);
     return [
       {
         TransactionId: transactionId,

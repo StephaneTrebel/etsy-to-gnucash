@@ -3,8 +3,7 @@ import {
   convertAdvertisementLine,
   convertDate,
   getAmount,
-
-  // processCSV
+  processCSV,
 } from './csv';
 
 const config: Config = {
@@ -79,19 +78,22 @@ describe('CSV', () => {
       it('Should return the converted equivalent line', () => {
         expect(
           convertAdvertisementLine(config)({
-            Date: '25 septembre 2022',
-            Type: 'TVA',
-            Titre: 'TVA: Etsy Ads',
-            Info: '',
-            Devise: 'EUR',
-            Montant: '--',
-            'Frais Et Taxes': '-€0.17',
-            Net: '-€0.17',
-            'Informations Fiscales': '--',
+            line: {
+              Date: '25 septembre 2022',
+              Type: 'TVA',
+              Titre: 'TVA: Etsy Ads',
+              Info: '',
+              Devise: 'EUR',
+              Montant: '--',
+              'Frais Et Taxes': '-€0.17',
+              Net: '-€0.17',
+              'Informations Fiscales': '--',
+            },
+            transactionId: 123,
           })
         ).toEqual([
           {
-            TransactionId: expect.any(Number),
+            TransactionId: 123,
             Date: '25-09-2022',
             Type: 'TVA',
             Compte: 'ACCOUNT_ETSY_ADS',
@@ -100,7 +102,7 @@ describe('CSV', () => {
             Debit: '',
           },
           {
-            TransactionId: expect.any(Number),
+            TransactionId: 123,
             Date: '25-09-2022',
             Type: 'TVA',
             Compte: 'ACCOUNT_ETSY_WALLET',
@@ -113,44 +115,44 @@ describe('CSV', () => {
     });
   });
 
-  // describe('processCSV()', () => {
-  // describe('Given a csv content', () => {
-  // it('Should return converted content', () => {
-  // expect(
-  // processCSV({ config, logger: console })([
-  // {
-  // Date: '25 septembre 2022',
-  // Type: 'TVA',
-  // Titre: 'TVA: Etsy Ads',
-  // Info: '',
-  // Devise: 'EUR',
-  // Montant: '--',
-  // 'Frais Et Taxes': '-€0.17',
-  // Net: '-€0.17',
-  // 'Informations Fiscales': '--',
-  // },
-  // ])
-  // ).toEqual([
-  // {
-  // TransactionId: 1,
-  // Date: '25-09-2022',
-  // Type: 'TVA',
-  // Compte: 'ACCOUNT_ETSY_WALLET',
-  // Titre: 'TVA: Etsy Ads',
-  // Credit: '',
-  // Debit: '0.17 €',
-  // },
-  // {
-  // TransactionId: 1,
-  // Date: '25-09-2022',
-  // Type: 'TVA',
-  // Compte: 'ACCOUNT_ETSY_ADS',
-  // Titre: 'TVA: Etsy Ads',
-  // Credit: '0.17 €',
-  // Debit: '',
-  // },
-  // ]);
-  // });
-  // });
-  // });
+  describe('processCSV()', () => {
+    describe('Given a CSV line object equivalent', () => {
+      it('Should return converted content', () => {
+        expect(
+          processCSV({ config, logger: console })([
+            {
+              Date: '25 septembre 2022',
+              Type: 'TVA',
+              Titre: 'TVA: Etsy Ads',
+              Info: '',
+              Devise: 'EUR',
+              Montant: '--',
+              'Frais Et Taxes': '-€0.17',
+              Net: '-€0.17',
+              'Informations Fiscales': '--',
+            },
+          ])
+        ).toEqual([
+          {
+            TransactionId: 1,
+            Date: '25-09-2022',
+            Type: 'TVA',
+            Compte: 'ACCOUNT_ETSY_ADS',
+            Titre: 'TVA: Etsy Ads',
+            Credit: '0.17 €',
+            Debit: '',
+          },
+          {
+            TransactionId: 1,
+            Date: '25-09-2022',
+            Type: 'TVA',
+            Compte: 'ACCOUNT_ETSY_WALLET',
+            Titre: 'TVA: Etsy Ads',
+            Credit: '',
+            Debit: '0.17 €',
+          },
+        ]);
+      });
+    });
+  });
 });
