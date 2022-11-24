@@ -1,5 +1,5 @@
 #!/bin/env bash
 
-rm -f test/output/*.csv
+rm -f test/output/*
 node dist/etsy-to-gnucash.js --inputDir=test/input --outDir=test/output
-diff test/output/input_converted.csv test/expected.csv
+for file in $(ls test/expected/); do diff -q test/expected/$file test/output/$file; done

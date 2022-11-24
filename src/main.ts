@@ -59,7 +59,7 @@ export const main: Main = ({
           .then(async (serializedCSV) => {
             const outputfile = join(
               outDir,
-              `${basename(file, '.csv')}_converted.csv`
+              file
             );
             await writeFile(outputfile, serializedCSV);
             log(`File ${outputfile} has been written.`);
