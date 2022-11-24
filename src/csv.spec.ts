@@ -15,6 +15,7 @@ const config: Config = {
 };
 
 describe('CSV', () => {
+
   describe('convertDate()', () => {
     describe('Given a unparsable date', () => {
       it('Should throw an error', () => {

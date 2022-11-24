@@ -43,7 +43,7 @@ export const processCSV: ProcessCSV =
                 /* dropped */
               ],
               // 7: Net: '-€0.17',
-              7: (key, value) => [key, convertNet(value as string)],
+              7: (key, value) => [key, convertNet(line, value as string)],
               // 8: 'Informations Fiscales': '--',
               8: (_key, _value) => [
                 /* dropped */
@@ -82,8 +82,16 @@ export const convertDate: ConvertDate = (dateLike) => {
   }
 };
 
-type ConvertNet = (input: string) => string;
-export const convertNet: ConvertNet = (input) => {
+type ConvertNet = (line: Record<string, unknown>, input: string) => string;
+export const convertNet: ConvertNet = (line, input) => {
+  if (
+    /virés sur votre compte bancaire/.test(Object.values(line)[2] as string)
+  ) {
+    input = '3';
+  }
+  if (input === '--') {
+    return input;
+  }
   return `${input.replace('€', '')} €`;
 };
 
@@ -92,39 +100,85 @@ type GetToAccount = (dependencies: {
 }) => (line: Record<string, unknown>) => string;
 export const getToAccount: GetToAccount =
   ({ config }) =>
-  (input) => {
-    const destinationAccountFromTypes: Record<string | 'unknown', string> = {
-      'TVA: Etsy Ads': config['ACCOUNT_ETSY_ADS'],
-      'Crédit Etsy Ads': config['ACCOUNT_ETSY_ADS'],
-      'Etsy Ads': config['ACCOUNT_ETSY_ADS'],
+  (line) => {
+    const destinationAccountFromTypes: Array<(x: string) => string | false> = [
+      (x: string) =>
+        x === 'TVA: Etsy Ads' ? config['ACCOUNT_ETSY_ADS'] : false,
+      (x: string) =>
+        x === 'Crédit Etsy Ads' ? config['ACCOUNT_ETSY_ADS'] : false,
+      (x: string) => (x === 'Etsy Ads' ? config['ACCOUNT_ETSY_ADS'] : false),
 
-      'TVA: listing': config['ACCOUNT_ETSY_LISTING'],
-      'Frais de mise en vente (0,20 USD)': config['ACCOUNT_ETSY_LISTING'],
-      'TVA: auto-renew sold': config['ACCOUNT_ETSY_LISTING'],
-      'TVA: renew sold': config['ACCOUNT_ETSY_LISTING'],
+      (x: string) =>
+        x === 'TVA: listing' ? config['ACCOUNT_ETSY_LISTING'] : false,
+      (x: string) =>
+        x === 'Frais de mise en vente (0,20 USD)'
+          ? config['ACCOUNT_ETSY_LISTING']
+          : false,
+      (x: string) =>
+        /TVA: auto-renew sold/.test(x) ? config['ACCOUNT_ETSY_LISTING'] : false,
+      (x: string) =>
+        x === 'TVA: renew sold' ? config['ACCOUNT_ETSY_LISTING'] : false,
 
-      'virés sur votre compte bancaire': config['ACCOUNT_GNUCASH_RECEIVABLE'],
+      (x: string) =>
+        /virés sur votre compte bancaire/.test(x)
+          ? config['ACCOUNT_GNUCASH_RECEIVABLE']
+          : false,
 
-      'TVA: shipping_transaction': config['ACCOUNT_ETSY_SHIPPING_FEES'],
-      'Transaction fee: Shipping': config['ACCOUNT_ETSY_SHIPPING_FEES'],
+      (x: string) =>
+        x === 'TVA: shipping_transaction'
+          ? config['ACCOUNT_ETSY_SHIPPING_FEES']
+          : false,
+      (x: string) =>
+        x === 'Transaction fee: Shipping'
+          ? config['ACCOUNT_ETSY_SHIPPING_FEES']
+          : false,
 
-      'Regulatory Operating fee': config['ACCOUNT_ETSY_REGULATORY_FEES'],
-      'TVA: Regulatory Operating fee': config['ACCOUNT_ETSY_REGULATORY_FEES'],
+      (x: string) =>
+        x === 'Regulatory Operating fee'
+          ? config['ACCOUNT_ETSY_REGULATORY_FEES']
+          : false,
+      (x: string) =>
+        x === 'TVA: Regulatory Operating fee'
+          ? config['ACCOUNT_ETSY_REGULATORY_FEES']
+          : false,
 
-      'Transaction fee (NOT SHIPPING)': config['ACCOUNT_ETSY_TRANSACTION_FEES'],
-      'TVA: transaction': config['ACCOUNT_ETSY_TRANSACTION_FEES'],
+      (x: string) =>
+        /Transaction fee: (?!Shipping)/.test(x)
+          ? config['ACCOUNT_ETSY_TRANSACTION_FEES']
+          : false,
+      (x: string) =>
+        x === 'TVA: transaction'
+          ? config['ACCOUNT_ETSY_TRANSACTION_FEES']
+          : false,
 
-      'Processing fee': config['ACCOUNT_ETSY_PROCESSING_FEES'],
-      'VAT: Processing Fee': config['ACCOUNT_ETSY_PROCESSING_FEES'],
+      (x: string) =>
+        x === 'Processing fee' ? config['ACCOUNT_ETSY_PROCESSING_FEES'] : false,
+      (x: string) =>
+        x === 'VAT: Processing Fee'
+          ? config['ACCOUNT_ETSY_PROCESSING_FEES']
+          : false,
 
-      'Payment for Order': config['ACCOUNT_ETSY_SALES'],
+      (x: string) =>
+        /Payment for Order/.test(x) ? config['ACCOUNT_ETSY_SALES'] : false,
 
-      'Sales tax paid by buyer': config['ACCOUNT_ETSY_SALES_TAX_PAID_BY_BUYER'],
-    };
+      (x: string) =>
+        /Paiement/.test(x) ? config['ACCOUNT_GNUCASH_RECEIVABLE'] : false,
+
+      (x: string) =>
+        x === 'Sales tax paid by buyer'
+          ? config['ACCOUNT_ETSY_SALES_TAX_PAID_BY_BUYER']
+          : false,
+    ];
+
     const lineType = (
-      Object.values(input) as Record<number, string>
+      Object.values(line) as Record<number, string>
     )[2] as string;
 
-    return (destinationAccountFromTypes[lineType] ||
-      destinationAccountFromTypes['unknown']) as string;
+    return (
+      destinationAccountFromTypes.reduce(
+        (previous: string | false, current) =>
+          previous ? previous : current(lineType),
+        false
+      ) || 'Unknown'
+    );
   };
