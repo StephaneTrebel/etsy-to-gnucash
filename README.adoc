@@ -21,6 +21,10 @@ WARNING: etsy-to-gnucash is in its infancy and thus localization is not currentl
 overwriting if `inputDir` === `outDir`
 * cleanup, either in `inputDir` or `outDir` is left to you
 
+== How to configure GNUCash to import CSV transactions
+
+_TODO_
+
 == Tests
 
 Of course there are tests, just `npm run test` !
