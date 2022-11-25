@@ -5,6 +5,8 @@ v1.0.0, 2022-11-01
 
 == About
 
+image::https://github.com/StephaneTrebel/etsy-to-gnucash/actions/workflows/node.js.yml/badge.svg[CI Badge]
+
 This repository provides a tool to convert Etsy Finance CSV export file
 to a format that can be imported in GNUCash transaction import tool.
 If you need more info on how it works and why it exists, feel free to dive in the link:./detailed-documentation.adoc[Detailed Documentation].
