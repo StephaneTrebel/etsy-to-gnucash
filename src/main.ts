@@ -47,7 +47,17 @@ export const main: Main = ({
         return readFile(filename, { encoding: 'utf8' })
           .then((x) => {
             return parse(x, {
-              columns: true,
+              columns: () => [
+                'TransactionDate',
+                'Type',
+                'Titre',
+                'Info',
+                'Devise',
+                'Montant',
+                'Frais Et Taxes',
+                'Net',
+                'Informations Fiscales',
+              ],
               skip_empty_lines: true,
             });
           })
@@ -57,10 +67,7 @@ export const main: Main = ({
           .then((convertedCSV) => stringify(convertedCSV))
           .then((x) => log(`Writing output file`) || x)
           .then(async (serializedCSV) => {
-            const outputfile = join(
-              outDir,
-              file
-            );
+            const outputfile = join(outDir, file);
             await writeFile(outputfile, serializedCSV);
             log(`File ${outputfile} has been written.`);
             return outputfile;

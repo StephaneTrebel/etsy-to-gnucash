@@ -7,6 +7,7 @@ require('esbuild')
     platform: 'node',
     outfile: 'dist/etsy-to-gnucash.js',
     plugins: [],
+		sourcemap: true,
   })
   .then(() => console.log('Finished successfully.'))
   .catch((error) => {

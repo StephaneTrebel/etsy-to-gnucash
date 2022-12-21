@@ -1,0 +1,194 @@
+import { Config } from './config';
+
+export interface ConvertedCSV {
+  TransactionId: number;
+  Date: string;
+  Type: string;
+  Compte: string;
+  Titre: string;
+  Credit: string;
+  Debit: string;
+}
+
+type ProcessCSV = (dependencies: {
+  logger: typeof console;
+  config: Config;
+}) => (csv: Array<Record<string, unknown>>) => Array<ConvertedCSV>;
+export const processCSV: ProcessCSV =
+  ({ config }) =>
+  (csv) => {
+    return csv.map((line) => {
+      return Object.fromEntries(
+        Object.entries(line)
+          .map(([key, value], index) => {
+            // To account for localized headers, we'll only work on their relative position:
+            // 0: Date
+            // 1: Type
+            // etc.
+            const converters: Record<
+              number | 'unknown',
+              (key: string, value: unknown) => [string, unknown] | []
+            > = {
+              unknown: (key, value) => [key, value],
+              // 0: Date
+              0: (key, value) => [key, convertDate(value as string)],
+              // 1: Type
+              1: (key, value) => [key, value],
+              // 2: Title
+              2: (key, value) => [key, value],
+              // 3: Info: ''
+              3: (_key, _value) => [
+                /* dropped */
+              ],
+              // 4: Devise: 'EUR',
+              4: (_key, _value) => [
+                /* dropped */
+              ],
+              // 5: Montant: '--',
+              5: (_key, _value) => [
+                /* dropped */
+              ],
+              // 6: 'Frais Et Taxes': '-€0.17',
+              6: (_key, _value) => [
+                /* dropped */
+              ],
+              // 7: Net: '-€0.17',
+              7: (key, value) => [key, convertNet(line, value as string)],
+              // 8: 'Informations Fiscales': '--',
+              8: (_key, _value) => [
+                /* dropped */
+              ],
+            };
+            return (
+              converters[index]?.(key, value) || converters.unknown(key, value)
+            );
+          })
+
+          // Add new fields
+          .concat([
+            ['De', config.ACCOUNT_ETSY_WALLET],
+            ['Vers', getToAccount({ config })(line)],
+          ])
+
+          // Filter out dropped keys
+          .filter((entry) => entry?.length > 0)
+      );
+    });
+  };
+
+type ConvertDate = (dateLike: string) => string;
+export const convertDate: ConvertDate = (dateLike) => {
+  const date = new Date(dateLike);
+  try {
+    // Trigger date check
+    !date.toISOString();
+    return `${date.getDate().toString().padStart(2, '0')}-${(
+      date.getMonth() + 1
+    )
+      .toString()
+      .padStart(2, '0')}-${date.getFullYear()}`;
+  } catch (error) {
+    throw new Error(`Invalid date: '${JSON.stringify(date)}'`);
+  }
+};
+
+type ConvertNet = (line: Record<string, unknown>, input: string) => string;
+export const convertNet: ConvertNet = (line, input) => {
+  if (
+    /virés sur votre compte bancaire/.test(Object.values(line)[2] as string)
+  ) {
+    input = '3';
+  }
+  if (input === '--') {
+    return input;
+  }
+  return `${input.replace('€', '')} €`;
+};
+
+type GetToAccount = (dependencies: {
+  config: Config;
+}) => (line: Record<string, unknown>) => string;
+export const getToAccount: GetToAccount =
+  ({ config }) =>
+  (line) => {
+    const destinationAccountFromTypes: Array<(x: string) => string | false> = [
+      (x: string) =>
+        x === 'TVA: Etsy Ads' ? config['ACCOUNT_ETSY_ADS'] : false,
+      (x: string) =>
+        x === 'Crédit Etsy Ads' ? config['ACCOUNT_ETSY_ADS'] : false,
+      (x: string) => (x === 'Etsy Ads' ? config['ACCOUNT_ETSY_ADS'] : false),
+
+      (x: string) =>
+        x === 'TVA: listing' ? config['ACCOUNT_ETSY_LISTING'] : false,
+      (x: string) =>
+        x === 'Frais de mise en vente (0,20 USD)'
+          ? config['ACCOUNT_ETSY_LISTING']
+          : false,
+      (x: string) =>
+        /TVA: auto-renew sold/.test(x) ? config['ACCOUNT_ETSY_LISTING'] : false,
+      (x: string) =>
+        x === 'TVA: renew sold' ? config['ACCOUNT_ETSY_LISTING'] : false,
+
+      (x: string) =>
+        /virés sur votre compte bancaire/.test(x)
+          ? config['ACCOUNT_GNUCASH_RECEIVABLE']
+          : false,
+
+      (x: string) =>
+        x === 'TVA: shipping_transaction'
+          ? config['ACCOUNT_ETSY_SHIPPING_FEES']
+          : false,
+      (x: string) =>
+        x === 'Transaction fee: Shipping'
+          ? config['ACCOUNT_ETSY_SHIPPING_FEES']
+          : false,
+
+      (x: string) =>
+        x === 'Regulatory Operating fee'
+          ? config['ACCOUNT_ETSY_REGULATORY_FEES']
+          : false,
+      (x: string) =>
+        x === 'TVA: Regulatory Operating fee'
+          ? config['ACCOUNT_ETSY_REGULATORY_FEES']
+          : false,
+
+      (x: string) =>
+        /Transaction fee: (?!Shipping)/.test(x)
+          ? config['ACCOUNT_ETSY_TRANSACTION_FEES']
+          : false,
+      (x: string) =>
+        x === 'TVA: transaction'
+          ? config['ACCOUNT_ETSY_TRANSACTION_FEES']
+          : false,
+
+      (x: string) =>
+        x === 'Processing fee' ? config['ACCOUNT_ETSY_PROCESSING_FEES'] : false,
+      (x: string) =>
+        x === 'VAT: Processing Fee'
+          ? config['ACCOUNT_ETSY_PROCESSING_FEES']
+          : false,
+
+      (x: string) =>
+        /Payment for Order/.test(x) ? config['ACCOUNT_ETSY_SALES'] : false,
+
+      (x: string) =>
+        /Paiement/.test(x) ? config['ACCOUNT_GNUCASH_RECEIVABLE'] : false,
+
+      (x: string) =>
+        x === 'Sales tax paid by buyer'
+          ? config['ACCOUNT_ETSY_SALES_TAX_PAID_BY_BUYER']
+          : false,
+    ];
+
+    const lineType = (
+      Object.values(line) as Record<number, string>
+    )[2] as string;
+
+    return (
+      destinationAccountFromTypes.reduce(
+        (previous: string | false, current) =>
+          previous ? previous : current(lineType),
+        false
+      ) || 'Unknown'
+    );
+  };

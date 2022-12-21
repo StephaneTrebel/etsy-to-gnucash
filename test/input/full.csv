@@ -1,4 +1,4 @@
-﻿Date,Type,Titre,Info,Devise,Montant,"Frais Et Taxes",Net,"Informations Fiscales"
+﻿TransactionDate,Type,Titre,Info,Devise,Montant,"Frais Et Taxes",Net,"Informations Fiscales"
 "25 septembre 2022",TVA,"TVA: Etsy Ads",,EUR,--,-€0.17,-€0.17,--
 "25 septembre 2022",Marketing,"Crédit Etsy Ads",,EUR,--,€0.58,€0.58,--
 "25 septembre 2022",Marketing,"Etsy Ads","Bill for click-throughs to your shop on Sep 24, 2022",EUR,--,-€1.44,-€1.44,--
